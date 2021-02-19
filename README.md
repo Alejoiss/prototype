@@ -1,27 +1,103 @@
-# Prototype
+A ideia deste artigo, é mostrar como podemos criar funções e atribuí-las a tipos de objetos primitivos para que possam ser invocadas de qualquer parte do código de um projeto construído com Angular 2+, sem a necessidade de ficar fazendo imports ou injetando através de serviços. 
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 11.1.4.
+No mundo Javascript, é muito comum criarmos funções pra tudo e reaproveitá-las de alguma forma para diversas ocasiões. Porém, existem muitas funções que já existem e estão disponíveis para que possamos utilizá-las. Essas funções podem estar disponíveis dentro de um objeto de escopo global (como o window, por exemplo) ou associadas a tipos de objetos primitivos. Um exemplo: quando trabalhamos com strings, temos alguns métodos próprios do próprio tipo do objeto string.
 
-## Development server
+``` 
+let str = 'aBc';  
+str.toLowerCase(); // 'abc'
+str.toUpperCase(); // 'ABC'
+```
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+Agora, imagine que pudéssemos criar nossas próprias funções/métodos e "acoplar" a esses objetos primitivos. Digamos que eu trabalhe com datas que venham do back-end e, que apesar de que na concepção delas, são datas, vão vir como string nos retornos, até porque não conseguimos muito diversidade em retornos JSON. Seria muito legal se a gente conseguisse simplesmente fazer:
 
-## Code scaffolding
+``` 
+let data = '01/01/2020';
+data.toDate(); //retornaria uma data: Wed Jan 01 2020 00:00:00 GMT-0300 (Horário Padrão de Brasília)
+```
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+Obviamente, este método não existe nativamente. Pra criá-lo, poderíamos simplesmente usar a função prototype que está disponível em todos os tipos de objetos do JS:
 
-## Build
+``` 
+String.prototype['toDate'] = function () {
+    //lógica que converte para data
+}
+```
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
+Como praticamente todos os objetos Js decendem de `Object`, logo, todos esses descendentes terão esta propriedade `prototype`, que nada mais do que o retorno do próprio protótipo do objeto e que pode ser sobrescrito ou criado novas funções, que foi o caso acima. 
 
-## Running unit tests
+Essa função poderia ser declarada em qualquer lugar globalmente (como na importação de um arquivo .js no index.html) que se tornaria disponível no código inteiro. Porém, em um projeto Angular se torna um pouco mais complicado, porque por mais que ao executar o código fosse dar certo a utilização da função que foi criada, na hora de compilar, o compilador não entende que toDate não é uma função do tipo string e daria erro.  
+Eu resolvi esse problema da seguinte forma. Criei um arquivo prototype.ts (ou qualquer nome que seja) e joguei num diretório qualquer. Ficou mais ou menos assim a estrutura dele:
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+``` 
+// prototype.ts
 
-## Running end-to-end tests
+export class Prototypes {
+    static init() {
+        String.prototype['toDate'] = function () {
+            //lógica que converte para data
+        }
+    }
+}
+``` 
 
-Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
+No arquivo `main.ts`, que é um arquivo do próprio projeto do Angular, em qualquer linha que seja, importo a class Prototype e inicializo ela:
 
-## Further help
+```
+// main.ts
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+import { Prototypes } from './caminho/qualquer/prototypes';
+Prototypes.init();
+```
+
+Porém, se você for tentar utilizar essa função, o compilador ainda vai dar erro dizendo que essa função não existe. A solução definitiva pra isso é escrever um arquivo .d.ts, que é um arquivo que vai informar ao usuário e também ao compilador, que foi definido uma certa função para uma determinada class. Serve como se fosse um arquivo de documentação ou arquivo de declaração, para ser mais exato. Pra isso, no mesmo diretório do arquivo prototype.ts, eu criei um arquivo prototype.d.ts contendo o seguinte:
+
+``` 
+//prototype.d.ts
+
+declare global {
+    interface String {
+        toDate() : Date;
+    }
+}
+export {};
+``` 
+
+Basicamente, é uma interface do que você vai criar, com o nome da função e o tipo de retorno dela. O global é pra ele entender que é uma função que está sendo declarada globalmente e o exports no final é para exportar tudo o que tem dentro. Agora sim, já dá pra usar o toDate em qualquer lugar da aplicação sem a necessidade de nenhum outro import.
+
+**Bônus:** essa é a minha classe completa do prototype:
+``` 
+//prototype.ts
+
+export class Prototypes {
+    static init() {
+        String.prototype['toDate'] = function () {
+            if (!this) { return null; }
+            let format = '';
+            if (this.indexOf('/') !== -1) {
+                format = 'DD/MM/YYYY';
+            } else if (this.indexOf('-') !== -1) {
+                format = 'YYYY-MM-DD';
+            }
+            try {
+                return moment(this, format).toDate();
+            } catch (e) {
+                return null;
+            }
+        }
+        String.prototype['toDateTime'] = function () {
+            if (!this) { return null; }
+            let format = '';
+            if (this.indexOf('/') !== -1) {
+                format = 'DD/MM/YYYY hh:mm:ss';
+            } else if (this.indexOf('-') !== -1) {
+                format = 'YYYY-MM-DD hh:mm:ss';
+            }
+            try {
+                return moment(this, format).toDate();
+            } catch (e) {
+                return null;
+            }
+        }
+    }
+} 
+``` 

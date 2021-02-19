@@ -69,35 +69,19 @@ Basicamente, é uma interface do que você vai criar, com o nome da função e o
 //prototype.ts
 
 export class Prototypes {
-    static init() {
-        String.prototype['toDate'] = function () {
+    static init(): void {
+        // tslint:disable-next-line:no-string-literal
+        String.prototype['toDate'] = function() {
             if (!this) { return null; }
-            let format = '';
+
             if (this.indexOf('/') !== -1) {
-                format = 'DD/MM/YYYY';
+                return new Date(this.toString());
             } else if (this.indexOf('-') !== -1) {
-                format = 'YYYY-MM-DD';
+                return new Date(this.split('-').reverse().join('/'));
             }
-            try {
-                return moment(this, format).toDate();
-            } catch (e) {
-                return null;
-            }
-        }
-        String.prototype['toDateTime'] = function () {
-            if (!this) { return null; }
-            let format = '';
-            if (this.indexOf('/') !== -1) {
-                format = 'DD/MM/YYYY hh:mm:ss';
-            } else if (this.indexOf('-') !== -1) {
-                format = 'YYYY-MM-DD hh:mm:ss';
-            }
-            try {
-                return moment(this, format).toDate();
-            } catch (e) {
-                return null;
-            }
-        }
+
+            return null;
+        };
     }
-} 
+}
 ``` 
